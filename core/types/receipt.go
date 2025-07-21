@@ -256,7 +256,7 @@ func (r *Receipt) EncodeRLP(w io.Writer) error {
 func (r *Receipt) encodeTyped(data *receiptRLP, w *bytes.Buffer) error {
 	w.WriteByte(r.Type)
 	switch r.Type {
-	case DepositTxType:
+	case DepositTxType, DepositTxV2Type:
 		withNonce := &depositReceiptRLP{data.PostStateOrStatus, data.CumulativeGasUsed, data.Bloom, data.Logs, r.DepositNonce, r.DepositReceiptVersion}
 		return rlp.Encode(w, withNonce)
 	default:
@@ -337,7 +337,7 @@ func (r *Receipt) decodeTyped(b []byte) error {
 		}
 		r.Type = b[0]
 		return r.setFromRLP(data)
-	case DepositTxType:
+	case DepositTxType, DepositTxV2Type:
 		var data depositReceiptRLP
 		err := rlp.DecodeBytes(b[1:], &data)
 		if err != nil {
@@ -504,7 +504,7 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 	switch r.Type {
 	case AccessListTxType, DynamicFeeTxType, BlobTxType:
 		rlp.Encode(w, data)
-	case DepositTxType:
+	case DepositTxType, DepositTxV2Type:
 		if r.DepositReceiptVersion != nil {
 			// post-canyon receipt hash computation update
 			depositData := &depositReceiptRLP{data.PostStateOrStatus, data.CumulativeGasUsed, r.Bloom, r.Logs, r.DepositNonce, r.DepositReceiptVersion}

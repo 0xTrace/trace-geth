@@ -213,6 +213,8 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 		inner = new(BlobTx)
 	case DepositTxType:
 		inner = new(DepositTx)
+	case DepositTxV2Type:
+		inner = new(DepositTxV2)
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
@@ -334,7 +336,14 @@ func (tx *Transaction) To() *common.Address {
 // e.g. a user deposit event, or a L1 info deposit included in a specific L2 block height.
 // Non-deposit transactions return a zeroed hash.
 func (tx *Transaction) SourceHash() common.Hash {
-	if dep, ok := tx.inner.(*DepositTx); ok {
+	switch dep := tx.inner.(type) {
+	case *DepositTx:
+		return dep.SourceHash
+	case *DepositTxV2:
+		return dep.SourceHash
+	case *depositTxWithNonce:
+		return dep.SourceHash
+	case *depositTxV2WithNonce:
 		return dep.SourceHash
 	}
 	return common.Hash{}
@@ -343,7 +352,14 @@ func (tx *Transaction) SourceHash() common.Hash {
 // Mint returns the ETH to mint in the deposit tx.
 // This returns nil if there is nothing to mint, or if this is not a deposit tx.
 func (tx *Transaction) Mint() *big.Int {
-	if dep, ok := tx.inner.(*DepositTx); ok {
+	switch dep := tx.inner.(type) {
+	case *DepositTx:
+		return dep.Mint
+	case *DepositTxV2:
+		return dep.Mint
+	case *depositTxWithNonce:
+		return dep.Mint
+	case *depositTxV2WithNonce:
 		return dep.Mint
 	}
 	return nil
@@ -351,7 +367,8 @@ func (tx *Transaction) Mint() *big.Int {
 
 // IsDepositTx returns true if the transaction is a deposit tx type.
 func (tx *Transaction) IsDepositTx() bool {
-	return tx.Type() == DepositTxType
+	t := tx.Type()
+	return t == DepositTxType || t == DepositTxV2Type
 }
 
 // IsSystemTx returns true for deposits that are system transactions. These transactions
@@ -372,7 +389,7 @@ func (tx *Transaction) Cost() *big.Int {
 
 // RollupCostData caches the information needed to efficiently compute the data availability fee
 func (tx *Transaction) RollupCostData() RollupCostData {
-	if tx.Type() == DepositTxType {
+	if tx.IsDepositTx() {
 		return RollupCostData{}
 	}
 	if v := tx.rollupCostData.Load(); v != nil {
@@ -418,7 +435,7 @@ func (tx *Transaction) GasTipCapIntCmp(other *big.Int) int {
 // Note: if the effective gasTipCap is negative, this method returns both error
 // the actual negative value, _and_ ErrGasFeeCapTooLow
 func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
-	if tx.Type() == DepositTxType {
+	if tx.IsDepositTx() {
 		return new(big.Int), nil
 	}
 	if baseFee == nil {
@@ -564,18 +581,35 @@ func (tx *Transaction) Time() time.Time {
 
 // Hash returns the transaction hash.
 func (tx *Transaction) Hash() common.Hash {
-	if hash := tx.hash.Load(); hash != nil {
-		return *hash
+	if h := tx.hash.Load(); h != nil {
+		return *h
 	}
 
-	var h common.Hash
-	if tx.Type() == LegacyTxType {
-		h = rlpHash(tx.inner)
-	} else {
-		h = prefixedRlpHash(tx.Type(), tx.inner)
+	var out common.Hash
+	switch tx.Type() {
+	case LegacyTxType:
+		out = rlpHash(tx.inner)
+
+	case DepositTxV2Type:
+		// Copy the transaction and zero out Mint field only
+		var d DepositTxV2
+		switch inner := tx.inner.(type) {
+		case *DepositTxV2:
+			d = *inner
+		case *depositTxV2WithNonce:
+			d = inner.DepositTxV2
+		default:
+			panic(fmt.Sprintf("expected DepositTxV2 or depositTxV2WithNonce, got %T", tx.inner))
+		}
+		d.Mint = nil
+		out = prefixedRlpHash(tx.Type(), &d)
+
+	default:
+		out = prefixedRlpHash(tx.Type(), tx.inner)
 	}
-	tx.hash.Store(&h)
-	return h
+
+	tx.hash.Store(&out)
+	return out
 }
 
 // Size returns the true encoded storage size of the transaction, either by encoding

@@ -24,7 +24,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-const DepositTxType = 0x7E
+const (
+	DepositTxType   = 0x7E // Legacy deposits (pre-Bluebird)
+	DepositTxV2Type = 0x7D // Bluebird deposits (exclude Mint from hash)
+)
 
 type DepositTx struct {
 	// SourceHash uniquely identifies the source of the deposit

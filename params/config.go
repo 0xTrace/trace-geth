@@ -381,6 +381,9 @@ type ChainConfig struct {
 
 	InteropTime *uint64 `json:"interopTime,omitempty"` // Interop switch time (nil = no fork, 0 = already on optimism interop)
 
+	// Bluebird fork
+	BluebirdTime *uint64 `json:"bluebirdTime,omitempty"` // Bluebird fork time (nil = no fork, 0 = already on bluebird)
+
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
@@ -543,6 +546,9 @@ func (c *ChainConfig) Description() string {
 	if c.InteropTime != nil {
 		banner += fmt.Sprintf(" - Interop:                     @%-10v\n", *c.InteropTime)
 	}
+	if c.BluebirdTime != nil {
+		banner += fmt.Sprintf(" - Bluebird:                    @%-10v\n", *c.BluebirdTime)
+	}
 	return banner
 }
 
@@ -682,6 +688,11 @@ func (c *ChainConfig) IsHolocene(time uint64) bool {
 
 func (c *ChainConfig) IsInterop(time uint64) bool {
 	return isTimestampForked(c.InteropTime, time)
+}
+
+// IsBluebird returns whether time is either equal to the Bluebird fork time or greater.
+func (c *ChainConfig) IsBluebird(time uint64) bool {
+	return isTimestampForked(c.BluebirdTime, time)
 }
 
 // IsOptimism returns whether the node is an optimism node or not.
@@ -907,6 +918,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 	}
 	if isForkTimestampIncompatible(c.InteropTime, newcfg.InteropTime, headTimestamp, genesisTimestamp) {
 		return newTimestampCompatError("Interop fork timestamp", c.InteropTime, newcfg.InteropTime)
+	}
+	if isForkTimestampIncompatible(c.BluebirdTime, newcfg.BluebirdTime, headTimestamp, genesisTimestamp) {
+		return newTimestampCompatError("Bluebird fork timestamp", c.BluebirdTime, newcfg.BluebirdTime)
 	}
 	return nil
 }
