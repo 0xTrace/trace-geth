@@ -242,6 +242,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	if config.OverrideOptimismInterop != nil {
 		overrides.OverrideOptimismInterop = config.OverrideOptimismInterop
 	}
+	if config.OverrideFacetBluebird != nil {
+		overrides.OverrideFacetBluebird = config.OverrideFacetBluebird
+	}
 	overrides.ApplySuperchainUpgrades = config.ApplySuperchainUpgrades
 
 	// TODO (MariusVanDerWijden) get rid of shouldPreserve in a follow-up PR

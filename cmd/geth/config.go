@@ -205,6 +205,11 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 		cfg.Eth.OverrideOptimismInterop = &v
 	}
 
+	if ctx.IsSet(utils.OverrideFacetBluebird.Name) {
+		v := ctx.Uint64(utils.OverrideFacetBluebird.Name)
+		cfg.Eth.OverrideFacetBluebird = &v
+	}
+
 	if ctx.IsSet(utils.OverrideVerkle.Name) {
 		v := ctx.Uint64(utils.OverrideVerkle.Name)
 		cfg.Eth.OverrideVerkle = &v

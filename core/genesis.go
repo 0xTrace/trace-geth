@@ -264,6 +264,7 @@ type ChainOverrides struct {
 	OverrideOptimismGranite  *uint64
 	OverrideOptimismHolocene *uint64
 	OverrideOptimismInterop  *uint64
+	OverrideFacetBluebird *uint64
 	ApplySuperchainUpgrades  bool
 }
 
@@ -331,6 +332,9 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 			}
 			if overrides != nil && overrides.OverrideOptimismInterop != nil {
 				config.InteropTime = overrides.OverrideOptimismInterop
+			}
+			if overrides != nil && overrides.OverrideFacetBluebird != nil {
+				config.BluebirdTime = overrides.OverrideFacetBluebird
 			}
 		}
 	}

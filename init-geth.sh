@@ -61,6 +61,13 @@ fi
 # Set default RPC gas cap if not provided
 RPC_GAS_CAP=${RPC_GAS_CAP:-500000000}
 
+# Build override flags
+OVERRIDE_FLAGS=""
+if [ ! -z "$BLUEBIRD_TIME" ]; then
+  echo "Setting Bluebird fork time to: $BLUEBIRD_TIME"
+  OVERRIDE_FLAGS="$OVERRIDE_FLAGS --override.bluebird=$BLUEBIRD_TIME"
+fi
+
 # Start geth in server mode without interactive console
 exec geth \
   --datadir /root/ethereum \
@@ -83,4 +90,5 @@ exec geth \
   --rollup.disabletxpoolgossip \
   --rollup.enabletxpooladmission=false \
   --history.state 0 \
-  --history.transactions 0
+  --history.transactions 0 \
+  $OVERRIDE_FLAGS
