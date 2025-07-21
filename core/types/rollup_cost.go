@@ -264,7 +264,13 @@ func extractL1GasParams(config *params.ChainConfig, time uint64, data []byte) (g
 	// If so, fall through to the pre-ecotone format
 	// Both Ecotone and Fjord use the same function selector
 	if config.IsEcotone(time) && len(data) >= 4 && !bytes.Equal(data[0:4], BedrockL1AttributesSelector) {
-		p, err := extractL1GasParamsPostEcotone(data)
+		var p gasParams
+		var err error
+		if config.IsBluebird(time) {
+			p, err = extractL1GasParamsPostBluebird(data)
+		} else {
+			p, err = extractL1GasParamsPostEcotone(data)
+		}
 		if err != nil {
 			return gasParams{}, err
 		}
@@ -308,13 +314,48 @@ func extractL1GasParamsPreEcotone(config *params.ChainConfig, time uint64, data 
 	}, nil
 }
 
+// extractL1GasParamsPostBluebird extracts the gas parameters necessary to compute gas from L1 attribute
+// info calldata after the Bluebird upgrade. The calldata is 260 bytes long, with gas computation
+// fields in the first 196 bytes.
+func extractL1GasParamsPostBluebird(data []byte) (gasParams, error) {
+	if len(data) != 260 {
+		return gasParams{}, fmt.Errorf("expected 260 L1 info bytes in Bluebird, got %d", len(data))
+	}
+	// data layout for Bluebird (first 196 bytes same as Ecotone):
+	// offset type varname
+	// 0     <selector>
+	// 4     uint32 _basefeeScalar
+	// 8     uint32 _blobBaseFeeScalar
+	// 12    uint64 _sequenceNumber,
+	// 20    uint64 _timestamp,
+	// 28    uint64 _l1BlockNumber
+	// 36    uint256 _basefee,
+	// 68    uint256 _blobBaseFee,
+	// 100   bytes32 _hash,
+	// 132   bytes32 _batcherHash,
+	// 164   bytes32 _newField1,  // New fields in Bluebird
+	// 196   bytes32 _newField2,
+	// 228   bytes32 _newField3,
+	// 260   bytes32 _newField4,
+	l1BaseFee := new(big.Int).SetBytes(data[36:68])
+	l1BlobBaseFee := new(big.Int).SetBytes(data[68:100])
+	l1BaseFeeScalar := binary.BigEndian.Uint32(data[4:8])
+	l1BlobBaseFeeScalar := binary.BigEndian.Uint32(data[8:12])
+	return gasParams{
+		l1BaseFee:           l1BaseFee,
+		l1BlobBaseFee:       l1BlobBaseFee,
+		l1BaseFeeScalar:     &l1BaseFeeScalar,
+		l1BlobBaseFeeScalar: &l1BlobBaseFeeScalar,
+	}, nil
+}
+
 // extractL1GasParamsPostEcotone extracts the gas parameters necessary to compute gas from L1 attribute
 // info calldata after the Ecotone upgrade, but not for the very first Ecotone block.
 func extractL1GasParamsPostEcotone(data []byte) (gasParams, error) {
-	if len(data) != 164+32 {
-		return gasParams{}, fmt.Errorf("expected 196 L1 info bytes, got %d", len(data))
+	if len(data) != 196 {
+		return gasParams{}, fmt.Errorf("expected 196 L1 info bytes in Ecotone, got %d", len(data))
 	}
-	// data layout assumed for Ecotone:
+	// data layout for Ecotone:
 	// offset type varname
 	// 0     <selector>
 	// 4     uint32 _basefeeScalar
