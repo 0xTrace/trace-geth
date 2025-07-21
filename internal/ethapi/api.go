@@ -1510,7 +1510,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 
 	switch tx.Type() {
-	case types.DepositTxType:
+	case types.DepositTxType, types.DepositTxV2Type:
 		srcHash := tx.SourceHash()
 		isSystemTx := tx.IsSystemTx()
 		result.SourceHash = &srcHash
@@ -1618,7 +1618,7 @@ func newRPCTransactionFromBlockIndex(ctx context.Context, b *types.Block, index 
 }
 
 func depositTxReceipt(ctx context.Context, blockHash common.Hash, index uint64, backend Backend, tx *types.Transaction) *types.Receipt {
-	if tx.Type() != types.DepositTxType {
+	if !tx.IsDepositTx() {
 		return nil
 	}
 	receipts, err := backend.GetReceipts(ctx, blockHash)

@@ -29,6 +29,54 @@ import (
 	"github.com/holiman/uint256"
 )
 
+// encodeDepositJSON handles JSON encoding for deposit transactions
+func encodeDepositJSON(enc *txJSON, d *DepositTx) {
+	enc.Gas = (*hexutil.Uint64)(&d.Gas)
+	enc.Value = (*hexutil.Big)(d.Value)
+	enc.Input = (*hexutil.Bytes)(&d.Data)
+	enc.To = d.To
+	enc.SourceHash = &d.SourceHash
+	enc.From = &d.From
+	if d.Mint != nil {
+		enc.Mint = (*hexutil.Big)(d.Mint)
+	}
+	enc.IsSystemTx = &d.IsSystemTransaction
+}
+
+// decodeDepositJSON handles JSON decoding for deposit transactions
+func decodeDepositJSON(dec *txJSON, d *DepositTx) error {
+	if dec.To != nil {
+		d.To = dec.To
+	}
+	if dec.Gas == nil {
+		return errors.New("missing required field 'gas' for txdata")
+	}
+	d.Gas = uint64(*dec.Gas)
+	if dec.Value == nil {
+		return errors.New("missing required field 'value' in transaction")
+	}
+	d.Value = (*big.Int)(dec.Value)
+	// mint may be omitted or nil if there is nothing to mint.
+	d.Mint = (*big.Int)(dec.Mint)
+	if dec.Input == nil {
+		return errors.New("missing required field 'input' in transaction")
+	}
+	d.Data = *dec.Input
+	if dec.From == nil {
+		return errors.New("missing required field 'from' in transaction")
+	}
+	d.From = *dec.From
+	if dec.SourceHash == nil {
+		return errors.New("missing required field 'sourceHash' in transaction")
+	}
+	d.SourceHash = *dec.SourceHash
+	// IsSystemTx may be omitted. Defaults to false.
+	if dec.IsSystemTx != nil {
+		d.IsSystemTransaction = *dec.IsSystemTx
+	}
+	return nil
+}
+
 // txJSON is the JSON representation of transactions.
 type txJSON struct {
 	Type hexutil.Uint64 `json:"type"`
@@ -163,17 +211,10 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 		}
 
 	case *DepositTx:
-		enc.Gas = (*hexutil.Uint64)(&itx.Gas)
-		enc.Value = (*hexutil.Big)(itx.Value)
-		enc.Input = (*hexutil.Bytes)(&itx.Data)
-		enc.To = tx.To()
-		enc.SourceHash = &itx.SourceHash
-		enc.From = &itx.From
-		if itx.Mint != nil {
-			enc.Mint = (*hexutil.Big)(itx.Mint)
-		}
-		enc.IsSystemTx = &itx.IsSystemTransaction
-		// other fields will show up as null.
+		encodeDepositJSON(&enc, itx)
+		
+	case *DepositTxV2:
+		encodeDepositJSON(&enc, &itx.DepositTx)
 	}
 	return json.Marshal(&enc)
 }
@@ -430,10 +471,11 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 			}
 		}
 
-	case DepositTxType:
+	case DepositTxType, DepositTxV2Type:
+		// Common validation for both deposit types
 		if dec.AccessList != nil || dec.MaxFeePerGas != nil ||
 			dec.MaxPriorityFeePerGas != nil {
-			return errors.New("unexpected field(s) in deposit transaction")
+			return errors.New("deposit tx cannot have accessList, maxFeePerGas, or maxPriorityFeePerGas")
 		}
 		if dec.GasPrice != nil && dec.GasPrice.ToInt().Cmp(common.Big0) != 0 {
 			return errors.New("deposit transaction GasPrice must be 0")
@@ -443,41 +485,30 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 			(dec.S != nil && dec.S.ToInt().Cmp(common.Big0) != 0) {
 			return errors.New("deposit transaction signature must be 0 or unset")
 		}
-		var itx DepositTx
-		inner = &itx
-		if dec.To != nil {
-			itx.To = dec.To
+		
+		// Type-specific handling
+		if dec.Type == DepositTxType {
+			var itx DepositTx
+			if err := decodeDepositJSON(&dec, &itx); err != nil {
+				return err
+			}
+			if dec.Nonce != nil {
+				inner = &depositTxWithNonce{DepositTx: itx, EffectiveNonce: uint64(*dec.Nonce)}
+			} else {
+				inner = &itx
+			}
+		} else { // DepositTxV2Type
+			var itx DepositTxV2
+			if err := decodeDepositJSON(&dec, &itx.DepositTx); err != nil {
+				return err
+			}
+			if dec.Nonce != nil {
+				inner = &depositTxV2WithNonce{DepositTxV2: itx, EffectiveNonce: uint64(*dec.Nonce)}
+			} else {
+				inner = &itx
+			}
 		}
-		if dec.Gas == nil {
-			return errors.New("missing required field 'gas' for txdata")
-		}
-		itx.Gas = uint64(*dec.Gas)
-		if dec.Value == nil {
-			return errors.New("missing required field 'value' in transaction")
-		}
-		itx.Value = (*big.Int)(dec.Value)
-		// mint may be omitted or nil if there is nothing to mint.
-		itx.Mint = (*big.Int)(dec.Mint)
-		if dec.Input == nil {
-			return errors.New("missing required field 'input' in transaction")
-		}
-		itx.Data = *dec.Input
-		if dec.From == nil {
-			return errors.New("missing required field 'from' in transaction")
-		}
-		itx.From = *dec.From
-		if dec.SourceHash == nil {
-			return errors.New("missing required field 'sourceHash' in transaction")
-		}
-		itx.SourceHash = *dec.SourceHash
-		// IsSystemTx may be omitted. Defaults to false.
-		if dec.IsSystemTx != nil {
-			itx.IsSystemTransaction = *dec.IsSystemTx
-		}
-
-		if dec.Nonce != nil {
-			inner = &depositTxWithNonce{DepositTx: itx, EffectiveNonce: uint64(*dec.Nonce)}
-		}
+		
 	default:
 		return ErrTxTypeNotSupported
 	}
@@ -500,3 +531,17 @@ func (tx *depositTxWithNonce) EncodeRLP(w io.Writer) error {
 }
 
 func (tx *depositTxWithNonce) effectiveNonce() *uint64 { return &tx.EffectiveNonce }
+
+// depositTxV2WithNonce wraps a V2 deposit transaction with an effective nonce
+type depositTxV2WithNonce struct {
+	DepositTxV2
+	EffectiveNonce uint64
+}
+
+func (tx *depositTxV2WithNonce) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, tx.DepositTxV2)
+}
+
+func (tx *depositTxV2WithNonce) effectiveNonce() *uint64 { 
+	return &tx.EffectiveNonce 
+}

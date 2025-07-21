@@ -112,7 +112,7 @@ func correctReceipts(receipts types.Receipts, transactions types.Transactions, b
 			continue
 		}
 		// break as soon as a non deposit is found
-		if r.Type != types.DepositTxType {
+		if r.Type != types.DepositTxType && r.Type != types.DepositTxV2Type {
 			break
 		}
 		// ignore any transactions from the system address
