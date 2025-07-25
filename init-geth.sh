@@ -90,5 +90,4 @@ exec geth \
   --rollup.disabletxpoolgossip \
   --rollup.enabletxpooladmission=false \
   --history.state 0 \
-  --history.transactions 0 \
-  $OVERRIDE_FLAGS
+  --history.transactions 0 $OVERRIDE_FLAGS
