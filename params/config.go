@@ -36,6 +36,11 @@ const (
 	OPMainnetChainID   = 10
 	BaseMainnetChainID = 8453
 	baseSepoliaChainID = 84532
+
+	// Bluebird EIP-1559 parameters
+	BluebirdElasticityMultiplier     uint64 = 3
+	BluebirdBaseFeeChangeDenominator uint64 = 8
+	BluebirdMinBaseFee               uint64 = 1_000_000
 )
 
 func newUint64(val uint64) *uint64 { return &val }
@@ -928,6 +933,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 // BaseFeeChangeDenominator bounds the amount the base fee can change between blocks.
 // The time parameters is the timestamp of the block to determine if Canyon is active or not
 func (c *ChainConfig) BaseFeeChangeDenominator(time uint64) uint64 {
+	if c.IsBluebird(time) {
+		return BluebirdBaseFeeChangeDenominator
+	}
 	if c.Optimism != nil {
 		if c.IsCanyon(time) {
 			if c.Optimism.EIP1559DenominatorCanyon == nil || *c.Optimism.EIP1559DenominatorCanyon == 0 {
@@ -941,7 +949,10 @@ func (c *ChainConfig) BaseFeeChangeDenominator(time uint64) uint64 {
 }
 
 // ElasticityMultiplier bounds the maximum gas limit an EIP-1559 block may have.
-func (c *ChainConfig) ElasticityMultiplier() uint64 {
+func (c *ChainConfig) ElasticityMultiplier(time uint64) uint64 {
+	if c.IsBluebird(time) {
+		return BluebirdElasticityMultiplier
+	}
 	if c.Optimism != nil {
 		return c.Optimism.EIP1559Elasticity
 	}
