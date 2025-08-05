@@ -294,6 +294,11 @@ var (
 		Usage:    "Manually specify the Optimsim Interop feature-set fork timestamp, overriding the bundled setting",
 		Category: flags.EthCategory,
 	}
+	OverrideFacetBluebird = &cli.Uint64Flag{
+		Name:     "override.bluebird",
+		Usage:    "Manually specify the Facet Bluebird fork timestamp, overriding the bundled setting",
+		Category: flags.EthCategory,
+	}
 	SyncModeFlag = &flags.TextMarshalerFlag{
 		Name:     "syncmode",
 		Usage:    `Blockchain sync mode ("snap" or "full")`,

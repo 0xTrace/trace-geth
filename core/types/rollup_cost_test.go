@@ -260,6 +260,8 @@ func getEcotoneL1Attributes(baseFee, blobBaseFee, baseFeeScalar, blobBaseFeeScal
 	data = append(data, blobBaseFee.FillBytes(uint256Slice)...)
 	data = append(data, ignored.FillBytes(uint256Slice)...)
 	data = append(data, ignored.FillBytes(uint256Slice)...)
+	// Add additional 32 bytes to reach 196 bytes total (164 + 32 = 196)
+	data = append(data, ignored.FillBytes(uint256Slice)...)
 	return data
 }
 
@@ -404,4 +406,41 @@ func TestFlzCompressLen(t *testing.T) {
 		output := FlzCompressLen(tc.input)
 		require.Equal(t, tc.expectedLen, output)
 	}
+}
+
+func TestExtractBluebirdGasParams(t *testing.T) {
+	zeroTime := uint64(0)
+	// create a config where bluebird is active
+	config := &params.ChainConfig{
+		Optimism:     params.OptimismTestConfig.Optimism,
+		RegolithTime: &zeroTime,
+		EcotoneTime:  &zeroTime,
+		BluebirdTime: &zeroTime,
+	}
+	require.True(t, config.IsBluebird(zeroTime))
+
+	// Create Bluebird data (292 bytes) with the same gas computation fields as Ecotone
+	data := getEcotoneL1Attributes(
+		baseFee,
+		blobBaseFee,
+		baseFeeScalar,
+		blobBaseFeeScalar,
+	)
+	// Add the additional 96 bytes for Bluebird (292 - 196 = 96)
+	extraData := make([]byte, 96)
+	data = append(data, extraData...)
+
+	gasparams, err := extractL1GasParams(config, zeroTime, data)
+	require.NoError(t, err)
+	costFunc := gasparams.costFunc
+
+	c, g := costFunc(emptyTx.RollupCostData())
+
+	require.Equal(t, ecotoneGas, g)
+	require.Equal(t, ecotoneFee, c)
+
+	// Test with wrong data length
+	_, err = extractL1GasParamsPostBluebird(data[:196]) // Use Ecotone length
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "expected 292 L1 info bytes in Bluebird")
 }

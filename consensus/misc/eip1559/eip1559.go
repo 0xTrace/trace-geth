@@ -35,7 +35,7 @@ func VerifyEIP1559Header(config *params.ChainConfig, parent, header *types.Heade
 	// Verify that the gas limit remains within allowed bounds
 	parentGasLimit := parent.GasLimit
 	if !config.IsLondon(parent.Number) {
-		parentGasLimit = parent.GasLimit * config.ElasticityMultiplier()
+		parentGasLimit = parent.GasLimit * config.ElasticityMultiplier(header.Time)
 	}
 	if config.Optimism == nil { // gasLimit can adjust instantly in optimism
 		if err := misc.VerifyGaslimit(parentGasLimit, header.GasLimit); err != nil {
@@ -63,7 +63,7 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, time uint64) 
 		return new(big.Int).SetUint64(params.InitialBaseFee)
 	}
 
-	parentGasTarget := parent.GasLimit / config.ElasticityMultiplier()
+	parentGasTarget := parent.GasLimit / config.ElasticityMultiplier(time)
 	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
 	if parent.GasUsed == parentGasTarget {
 		return new(big.Int).Set(parent.BaseFee)
@@ -93,6 +93,11 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, time uint64) 
 		num.Div(num, denom.SetUint64(config.BaseFeeChangeDenominator(time)))
 		baseFee := num.Sub(parent.BaseFee, num)
 
-		return math.BigMax(baseFee, common.Big0)
+		// Enforce minimum base fee for Bluebird
+		minBaseFee := common.Big0
+		if config.IsBluebird(time) {
+			minBaseFee = new(big.Int).SetUint64(params.BluebirdMinBaseFee)
+		}
+		return math.BigMax(baseFee, minBaseFee)
 	}
 }

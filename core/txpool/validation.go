@@ -78,7 +78,7 @@ func ValidateTransaction(tx *types.Transaction, head *types.Header, signer types
 	// No unauthenticated deposits allowed in the transaction pool.
 	// This is for spam protection, not consensus,
 	// as the external engine-API user authenticates deposits.
-	if tx.Type() == types.DepositTxType {
+	if tx.IsDepositTx() {
 		return core.ErrTxTypeNotSupported
 	}
 	if opts.Config.IsOptimism() && tx.Type() == types.BlobTxType {
