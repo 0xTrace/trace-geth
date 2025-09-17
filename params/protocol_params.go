@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	MaxTransactionGasLimit = 50_000_000 // Maximum gas limit allowed for a single transaction
+	MaxTransactionGasLimit = 50_000_000_000 // Maximum gas limit allowed for a single transaction
 )
 
 var (

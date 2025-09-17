@@ -354,8 +354,8 @@ func extractL1GasParamsPostBluebird(data []byte) (gasParams, error) {
 // extractL1GasParamsPostEcotone extracts the gas parameters necessary to compute gas from L1 attribute
 // info calldata after the Ecotone upgrade, but not for the very first Ecotone block.
 func extractL1GasParamsPostEcotone(data []byte) (gasParams, error) {
-	if len(data) != 196 {
-		return gasParams{}, fmt.Errorf("expected 196 L1 info bytes in Ecotone, got %d", len(data))
+	if len(data) != 164 {
+		return gasParams{}, fmt.Errorf("expected 164 L1 info bytes in Ecotone, got %d", len(data))
 	}
 	// data layout for Ecotone:
 	// offset type varname
