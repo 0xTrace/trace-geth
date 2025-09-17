@@ -2,13 +2,13 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "*v*", "facet" ]
+    branches: [ "*v*", "ethscriptions" ]
     tags:
       - '*v*'
   release:
     types: [published]
   pull_request:
-    branches: [ "*v*", "facet" ]
+    branches: [ "*v*", "ethscriptions" ]
   workflow_dispatch:
 
 jobs:
@@ -32,12 +32,12 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ghcr.io/0xfacet/facet-geth
+        images: ghcr.io/ethscriptions-protocol/ethscriptions-geth
         tags: |
           # Latest commit on any branch
           type=sha,format=short
           
-          # Branch names (v1.0.0, facet, etc)
+          # Branch names (v1.0.0, ethscriptions, etc)
           type=ref,event=branch
           
           # Git tags (v1.0.0, etc)
