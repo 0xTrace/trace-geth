@@ -50,10 +50,18 @@ else
   echo "GENESIS_MIX_HASH environment variable is not set, using existing value in genesis file"
 fi
 
+ENABLE_PREIMAGES=${ENABLE_PREIMAGES:-true}
+
+# Build preimages flag for init if enabled
+INIT_PREIMAGES_FLAG=""
+if [ "$ENABLE_PREIMAGES" = "true" ]; then
+  INIT_PREIMAGES_FLAG="--cache.preimages"
+fi
+
 # Check if the data directory is empty
 if [ ! "$(ls -A /root/ethereum)" ]; then
   echo "Initializing new blockchain..."
-  geth init --cache.preimages --state.scheme=hash --datadir /root/ethereum "/$GENESIS_FILE"
+  geth init $INIT_PREIMAGES_FLAG --state.scheme=hash --datadir /root/ethereum "/$GENESIS_FILE"
 else
   echo "Blockchain already initialized."
 fi
@@ -67,12 +75,35 @@ CACHE_SIZE=${CACHE_SIZE:-25000}
 # Set default auth RPC port if not provided
 AUTH_RPC_PORT=${AUTH_RPC_PORT:-8551}
 
+GC_MODE=${GC_MODE:-archive}
+
+STATE_HISTORY=${STATE_HISTORY:-0}
+TX_HISTORY=${TX_HISTORY:-0}
+
+CACHE_GC=${CACHE_GC:-25}
+CACHE_TRIE=${CACHE_TRIE:-15}
+
+
 # Build override flags
 OVERRIDE_FLAGS=""
 if [ ! -z "$BLUEBIRD_TIMESTAMP" ]; then
   echo "Setting Bluebird fork timestamp to: $BLUEBIRD_TIMESTAMP"
   OVERRIDE_FLAGS="$OVERRIDE_FLAGS --override.bluebird=$BLUEBIRD_TIMESTAMP"
 fi
+
+# Build preimages flag if enabled
+PREIMAGES_FLAG=""
+if [ "$ENABLE_PREIMAGES" = "true" ]; then
+  PREIMAGES_FLAG="--cache.preimages"
+fi
+
+# Log the configuration
+echo "Starting geth with:"
+echo "  GC Mode: $GC_MODE"
+echo "  State History: $STATE_HISTORY blocks"
+echo "  Transaction History: $TX_HISTORY blocks"
+echo "  Cache Size: $CACHE_SIZE MB"
+echo "  Preimages: $ENABLE_PREIMAGES"
 
 # Start geth in server mode without interactive console
 exec geth \
@@ -88,12 +119,14 @@ exec geth \
   --authrpc.jwtsecret /tmp/jwtsecret \
   --nodiscover \
   --cache $CACHE_SIZE \
-  --cache.preimages \
+  --cache.gc $CACHE_GC \
+  --cache.trie $CACHE_TRIE \
+  $PREIMAGES_FLAG \
   --maxpeers 0 \
   --rpc.gascap $RPC_GAS_CAP \
   --syncmode full \
-  --gcmode archive \
+  --gcmode $GC_MODE \
   --rollup.disabletxpoolgossip \
   --rollup.enabletxpooladmission=false \
-  --history.state 0 \
-  --history.transactions 0 $OVERRIDE_FLAGS
+  --history.state $STATE_HISTORY \
+  --history.transactions $TX_HISTORY $OVERRIDE_FLAGS
