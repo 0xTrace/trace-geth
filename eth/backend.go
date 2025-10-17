@@ -192,6 +192,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		vmConfig = vm.Config{
 			EnablePreimageRecording: config.EnablePreimageRecording,
 			EnableWitnessCollection: config.EnableWitnessCollection,
+			NoMaxCodeSize:           true, // Disable contract size limits
 		}
 		cacheConfig = &core.CacheConfig{
 			TrieCleanLimit:      config.TrieCleanCache,

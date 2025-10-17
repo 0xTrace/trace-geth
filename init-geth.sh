@@ -105,8 +105,8 @@ echo "  Transaction History: $TX_HISTORY blocks"
 echo "  Cache Size: $CACHE_SIZE MB"
 echo "  Preimages: $ENABLE_PREIMAGES"
 
-# Start geth in server mode without interactive console
-exec geth \
+# Start geth in background to fix IPC permissions
+geth \
   --datadir /root/ethereum \
   --http \
   --http.addr "0.0.0.0" \
@@ -129,4 +129,21 @@ exec geth \
   --rollup.disabletxpoolgossip \
   --rollup.enabletxpooladmission=false \
   --history.state $STATE_HISTORY \
-  --history.transactions $TX_HISTORY $OVERRIDE_FLAGS
+  --history.transactions $TX_HISTORY $OVERRIDE_FLAGS &
+
+# Capture the PID
+GETH_PID=$!
+
+# Wait for IPC socket to be created
+echo "Waiting for IPC socket to be created..."
+while [ ! -S /root/ethereum/geth.ipc ]; do
+  sleep 0.5
+done
+
+# Make it world readable/writable
+chmod 666 /root/ethereum/geth.ipc
+echo "IPC socket permissions fixed to 666"
+ls -la /root/ethereum/geth.ipc
+
+# Bring geth back to foreground so Docker can track it properly
+wait $GETH_PID
