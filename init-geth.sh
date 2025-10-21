@@ -105,6 +105,12 @@ echo "  Transaction History: $TX_HISTORY blocks"
 echo "  Cache Size: $CACHE_SIZE MB"
 echo "  Preimages: $ENABLE_PREIMAGES"
 
+# Remove any stale IPC socket from a previous run
+if [ -S /root/ethereum/geth.ipc ]; then
+  echo "Removing stale IPC socket from previous run"
+  rm -f /root/ethereum/geth.ipc || true
+fi
+
 # Start geth in background to fix IPC permissions
 geth \
   --datadir /root/ethereum \
